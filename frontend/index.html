@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scribble.io Clone</title>
+    <link rel=" stylesheet" href="main.css">
+</head>
+
+<body>
+    <div class=" game-container">
+        <div class="drawing-area">
+            <div class="game-info">
+                <div class="word-display" id="wordDisplay">_ _ _ _ _ _</div>
+                <div class="timer" id="timer">80s</div>
+            </div>
+            <div class="canvas-container"><canvas id="drawingCanvas" width="800" height="600"></canvas></div>
+            <div class="drawing-tools">
+                <div class="tool-group"><button class="tool-btn active" data-tool="pen">✏️ Pen</button><button
+                        class="tool-btn" data-tool="eraser">🧽 Eraser</button><button class="tool-btn"
+                        onclick="clearCanvas()">🗑️ Clear</button><button class="tool-btn" onclick="undoLast()">↶
+                        Undo</button></div>
+                <div class="color-palette">
+                    <div class="color-btn active" data-color="#000000" style="background: #000000"></div>
+                    <div class="color-btn" data-color="#FF0000" style="background: #FF0000"></div>
+                    <div class="color-btn" data-color="#00FF00" style="background: #00FF00"></div>
+                    <div class="color-btn" data-color="#0000FF" style="background: #0000FF"></div>
+                    <div class "color-btn" data-color="#FFFF00" style="background: #FFFF00"></div>
+                    <div class="color-btn" data-color="#FF00FF" style="background: #FF00FF"></div>
+                    <div class="color-btn" data-color="#00FFFF" style="background: #00FFFF"></div>
+                    <div class="color-btn" data-color="#FFA500" style="background: #FFA500"></div>
+                </div>
+                <div class="brush-size"><span>Size:</span><input type="range" class="size-slider" min="1" max="20"
+                        value="5" id="brushSize"><span id="sizeDisplay">5px</span></div>
+            </div>
+        </div>
+        <div class="sidebar">
+            <div class="players-list">
+                <div class="players-title">Players (4/8)</div>
+                <div id="playersList">
+                    <div class="player-item drawing"><span class="player-name">🎨 NguyenVanA</span><span
+                            class="player-score">245</span></div>
+                    <div class="player-item"><span class="player-name">TranThiB</span><span
+                            class="player-score">189</span></div>
+                    <div class="player-item"><span class="player-name">LeVanC</span><span
+                            class="player-score">156</span></div>
+                    <div class="player-item"><span class="player-name">PhamThiD</span><span
+                            class="player-score">98</span></div>
+                </div>
+            </div>
+            <div class="chat-container">
+                <div class="chat-messages" id="chatMessages">
+                    <div class="chat-message system">Round 3 started ! NguyenVanA is drawing</div>
+                    <div class="chat-message"><strong>TranThiB:</strong>is it an animal? </div>
+                    <div class="chat-message guess"><strong>LeVanC:</strong>cat? </div>
+                    <div class="chat-message"><strong>PhamThiD:</strong>nice drawing ! </div>
+                    <div class="chat-message correct"><strong>LeVanC</strong>guessed correctly !+150 points </div>
+                </div>
+                <div class="chat-input-container"><input type="text" class="chat-input" id="chatInput"
+                        placeholder="Type your guess..." maxlength="100"></div>
+            </div>
+        </div>
+    </div>
+    <!-- Word Selection Modal (shown to drawer) -->
+    <div class="word-selection" id="wordSelection" style="display: none;">
+        <h2>Choose a word to draw:</h2>
+        <div class="word-options"><button class="word-option" onclick="selectWord('HOUSE')">HOUSE</button><button
+                class="word-option" onclick="selectWord('TREE')">TREE</button><button class="word-option"
+                onclick="selectWord('CAR')">CAR</button></div>
+    </div>
+    <script src="main.js""></script>
+</body>
+
+</html>
