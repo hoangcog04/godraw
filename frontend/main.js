@@ -4,20 +4,24 @@
 class ScribbleClient {
     constructor() {
         this.ws = null;
-        this.canvas = document.getElementById('drawingCanvas');
+        // s1
+        this.canvas = document.querySelector('#drawingCanvas');
+        // s2
         this.ctx = this.canvas.getContext('2d');
         this.isDrawing = false;
-        this.isDrawer = false;
+        // this.isDrawer = false;
+        this.isDrawer = true;
         this.currentTool = 'pen';
         this.currentColor = '#000000';
         this.currentBrushSize = 5;
         this.roomId = 'room_demo';
         this.playerId = 'player_' + Math.random().toString(36).substr(2, 9);
         this.drawingPath = [];
+        this.strokes = []; // Thêm mảng lưu các strokes
 
         this.setupCanvas();
         this.setupUI();
-        this.connectWebSocket();
+        // this.connectWebSocket();
     }
 
     connectWebSocket() {
@@ -50,13 +54,16 @@ class ScribbleClient {
         // High DPI support
         const rect = this.canvas.getBoundingClientRect();
         const ratio = window.devicePixelRatio || 1;
+        // s1
         this.canvas.width = rect.width * ratio;
         this.canvas.height = rect.height * ratio;
+        // s2
         this.ctx.scale(ratio, ratio);
         this.canvas.style.width = rect.width + 'px';
         this.canvas.style.height = rect.height + 'px';
 
         // Drawing event listeners
+        // s3
         this.canvas.addEventListener('mousedown', (e) => this.startDrawing(e));
         this.canvas.addEventListener('mousemove', (e) => this.draw(e));
         this.canvas.addEventListener('mouseup', () => this.stopDrawing());
@@ -131,93 +138,125 @@ class ScribbleClient {
                 e.target.value = '';
             }
         });
+
+        // s7
+        const btnUndoE = document.querySelector("#button-undo")
+        btnUndoE.addEventListener('click', (e) => {
+            this.undoLastStroke();
+        });
+
+        const btnClearE = document.querySelector("#button-clear")
+        btnClearE.addEventListener('click', (e) => this.clearCanvas());
     }
 
     getMousePos(e) {
         const rect = this.canvas.getBoundingClientRect();
+        // const ratio = window.devicePixelRatio || 1
 
         return {
-            x: e.clientX - rect.left,
-            y: e.clientY - rect.top
-        }
-
-            ;
+            x: (e.clientX - rect.left),
+            y: (e.clientY - rect.top)
+        };
     }
 
     startDrawing(e) {
+        console.log(e)
         if (!this.isDrawer) return;
 
+        // s4
         this.isDrawing = true;
         const pos = this.getMousePos(e);
         this.drawingPath = [pos];
 
-        this.sendWebSocketMessage({
+        // comment
+        // this.sendWebSocketMessage({
 
-            type: 'DRAW_START',
-            data: {
-                x: pos.x,
-                y: pos.y,
-                color: this.currentColor,
-                brushSize: this.currentBrushSize,
-                tool: this.currentTool
-            }
-        });
+        //     type: 'DRAW_START',
+        //     data: {
+        //         x: pos.x,
+        //         y: pos.y,
+        //         color: this.currentColor,
+        //         brushSize: this.currentBrushSize,
+        //         tool: this.currentTool
+        //     }
+        // });
 
         this.drawOnCanvas(pos.x, pos.y, true);
+        // s4
+        // Tạo stroke mới
+        this.currentStroke = {
+            color: this.currentColor,
+            brushSize: this.currentBrushSize,
+            tool: this.currentTool,
+            points: [pos]
+        };
+        this.strokes.push(this.currentStroke);
+        this.drawOnCanvas(pos.x, pos.y, true, this.currentStroke);
+        e.preventDefault()
     }
 
     draw(e) {
+        // s5
         if (!this.isDrawing || !this.isDrawer) return;
 
         const pos = this.getMousePos(e);
         this.drawingPath.push(pos);
 
         // Throttle sending to server (every 16ms ≈ 60fps)
-        if (!this.drawThrottleTimeout) {
-            this.drawThrottleTimeout = setTimeout(() => {
-                if (this.drawingPath.length > 1) {
-                    this.sendWebSocketMessage({
+        // if (!this.drawThrottleTimeout) {
+        //     this.drawThrottleTimeout = setTimeout(() => {
+        //         if (this.drawingPath.length > 1) {
+        //             this.sendWebSocketMessage({
 
-                        type: 'DRAW_PATH',
-                        data: {
-                            points: this.drawingPath.slice(-5) // Send last 5 points
-                        }
-                    });
-                }
+        //                 type: 'DRAW_PATH',
+        //                 data: {
+        //                     points: this.drawingPath.slice(-5) // Send last 5 points
+        //                 }
+        //             });
+        //         }
 
-                this.drawThrottleTimeout = null;
-            }
+        //         this.drawThrottleTimeout = null;
+        //     }
 
-                , 16);
-        }
+        //         , 16);
+        // }
 
         this.drawOnCanvas(pos.x, pos.y, false);
+        // Thêm điểm vào stroke hiện tại
+        if (this.currentStroke) {
+            this.currentStroke.points.push(pos);
+        }
+        this.drawOnCanvas(pos.x, pos.y, false, this.currentStroke);
+        e.preventDefault()
     }
 
     stopDrawing() {
+        // s6
         if (!this.isDrawing || !this.isDrawer) return;
 
         this.isDrawing = false;
 
-        this.sendWebSocketMessage({
+        // this.sendWebSocketMessage({
 
-            type: 'DRAW_END',
-            data: {}
-        });
+        //     type: 'DRAW_END',
+        //     data: {}
+        // });
+        this.currentStroke = null;
     }
 
-    drawOnCanvas(x, y, isStart) {
+    drawOnCanvas(x, y, isStart, stroke) {
+        // Nếu có stroke truyền vào thì dùng thuộc tính của stroke, không thì dùng thuộc tính hiện tại
+        const color = stroke ? (stroke.tool === 'eraser' ? '#FFFFFF' : stroke.color) : (this.currentTool === 'eraser' ? '#FFFFFF' : this.currentColor);
+        const brushSize = stroke ? stroke.brushSize : this.currentBrushSize;
         this.ctx.lineCap = 'round';
         this.ctx.lineJoin = 'round';
-        this.ctx.lineWidth = this.currentBrushSize;
-        this.ctx.strokeStyle = this.currentTool === 'eraser' ? '#FFFFFF' : this.currentColor;
+        this.ctx.lineWidth = brushSize;
+        this.ctx.strokeStyle = color;
 
         if (isStart) {
             this.ctx.beginPath();
             this.ctx.moveTo(x, y);
-        }
-
-        else {
+        } else {
             this.ctx.lineTo(x, y);
             this.ctx.stroke();
         }
@@ -388,6 +427,27 @@ class ScribbleClient {
 
     clearCanvas() {
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    }
+
+    // Hàm vẽ lại toàn bộ strokes
+    redrawAllStrokes() {
+        this.clearCanvas();
+        for (const stroke of this.strokes) {
+            if (!stroke.points.length) continue;
+            for (let i = 0; i < stroke.points.length; i++) {
+                const pt = stroke.points[i];
+                this.drawOnCanvas(pt.x, pt.y, i === 0, stroke);
+            }
+            this.ctx.closePath();
+        }
+    }
+
+    // Hàm undo
+    undoLastStroke() {
+        if (this.strokes.length > 0) {
+            this.strokes.pop();
+            this.redrawAllStrokes();
+        }
     }
 }
 
