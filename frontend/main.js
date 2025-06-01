@@ -22,22 +22,21 @@
  * @property {number} timestamp
  */
 
-// Message Types cho việc vẽ
-const DRAW_MESSAGES = {
-    START: 'DRAW_START',    // Bắt đầu vẽ
-    MOVE: 'DRAW_MOVE',      // Di chuyển bút vẽ
-    END: 'DRAW_END',        // Kết thúc vẽ
-    CLEAR: 'CLEAR_CANVAS'   // Xóa canvas
-};
+// Message Types
+const MESSAGE_TYPES = {
+    // Drawing
+    DRAW_START: 'DRAW_START',
+    DRAW_MOVE: 'DRAW_MOVE',
+    DRAW_END: 'DRAW_END',
+    CLEAR_CANVAS: 'CLEAR_CANVAS',
 
-// Cấu trúc message đơn giản
-const createDrawMessage = (type, data) => ({
-    type,
-    data: {
-        ...data,
-        timestamp: Date.now()
-    }
-});
+    // Room
+    JOIN_ROOM: 'JOIN_ROOM',
+    LEAVE_ROOM: 'LEAVE_ROOM',
+
+    // Chat
+    CHAT_MESSAGE: 'CHAT_MESSAGE'
+};
 
 // Canvas Manager
 class CanvasManager {
@@ -49,16 +48,6 @@ class CanvasManager {
         this.ctx = canvas.getContext('2d');
         this.strokes = [];
         this.currentStroke = null;
-
-        // Khởi tạo WebSocket
-        this.ws = new DrawingWebSocket('ws://localhost:8080/ws');
-
-        // Gán các callback functions
-        this.ws.onDrawStart = this.handleRemoteDrawStart.bind(this);
-        this.ws.onDrawMove = this.handleRemoteDrawMove.bind(this);
-        this.ws.onDrawEnd = this.handleRemoteDrawEnd.bind(this);
-        this.ws.onClearCanvas = this.handleRemoteClearCanvas.bind(this);
-
         this.setupCanvas();
     }
 
@@ -110,9 +99,6 @@ class CanvasManager {
         };
         this.strokes.push(this.currentStroke);
         this.drawOnCanvas(pos, true, this.currentStroke);
-
-        // Gửi message bắt đầu vẽ
-        this.ws.sendDrawStart(pos.x, pos.y, color, brushSize);
     }
 
     /**
@@ -122,24 +108,11 @@ class CanvasManager {
         if (this.currentStroke) {
             this.currentStroke.points.push(pos);
             this.drawOnCanvas(pos, false, this.currentStroke);
-
-            // Gửi message di chuyển bút vẽ
-            // Throttle để tránh gửi quá nhiều message
-            if (!this.drawThrottleTimeout) {
-                this.drawThrottleTimeout = setTimeout(() => {
-                    this.ws.sendDrawMove(this.currentStroke.points.slice(-5));
-                    this.drawThrottleTimeout = null;
-                }, 16); // ~60fps
-            }
         }
     }
 
     endDrawing() {
-        if (this.currentStroke) {
-            this.currentStroke = null;
-            // Gửi message kết thúc vẽ
-            this.ws.sendDrawEnd();
-        }
+        this.currentStroke = null;
     }
 
     clearCanvas() {
@@ -163,34 +136,6 @@ class CanvasManager {
             this.strokes.pop();
             this.redrawAllStrokes();
         }
-    }
-
-    // Xử lý vẽ remote
-    handleRemoteDrawStart(data) {
-        this.currentStroke = {
-            color: data.color,
-            brushSize: data.brushSize,
-            points: [{ x: data.x, y: data.y }]
-        };
-        this.strokes.push(this.currentStroke);
-        this.drawOnCanvas(data.x, data.y, true, this.currentStroke);
-    }
-
-    handleRemoteDrawMove(data) {
-        if (this.currentStroke) {
-            data.points.forEach(point => {
-                this.currentStroke.points.push(point);
-                this.drawOnCanvas(point.x, point.y, false, this.currentStroke);
-            });
-        }
-    }
-
-    handleRemoteDrawEnd() {
-        this.currentStroke = null;
-    }
-
-    handleRemoteClearCanvas() {
-        this.clearCanvas();
     }
 }
 
@@ -233,7 +178,7 @@ class WebSocketManager {
     /**
      * @param {WebSocketMessage} message
      */
-    sendWebSocketMessage(message) {
+    sendMessage(message) {
         if (this.ws && this.ws.readyState === WebSocket.OPEN) {
             const fullMessage = {
                 ...message,
@@ -246,12 +191,47 @@ class WebSocketManager {
     }
 
     joinRoom() {
-        this.sendWebSocketMessage({
-            type: 'JOIN_ROOM',
+        this.sendMessage({
+            type: MESSAGE_TYPES.JOIN_ROOM,
             data: {
                 playerName: 'Player_' + this.playerId.substr(-4),
                 avatar: '🎨'
             }
+        });
+    }
+
+    sendDrawStart(x, y, color, brushSize, tool) {
+        this.sendMessage({
+            type: MESSAGE_TYPES.DRAW_START,
+            data: { x, y, color, brushSize, tool }
+        });
+    }
+
+    sendDrawMove(points) {
+        this.sendMessage({
+            type: MESSAGE_TYPES.DRAW_MOVE,
+            data: { points }
+        });
+    }
+
+    sendDrawEnd() {
+        this.sendMessage({
+            type: MESSAGE_TYPES.DRAW_END,
+            data: {}
+        });
+    }
+
+    sendClearCanvas() {
+        this.sendMessage({
+            type: MESSAGE_TYPES.CLEAR_CANVAS,
+            data: {}
+        });
+    }
+
+    sendChatMessage(text, isGuess) {
+        this.sendMessage({
+            type: MESSAGE_TYPES.CHAT_MESSAGE,
+            data: { message: text, isGuess }
         });
     }
 }
@@ -269,7 +249,6 @@ class GameManager {
         this.currentTool = 'pen';
         this.currentColor = '#000000';
         this.currentBrushSize = 5;
-        this.timerInterval = null;
     }
 
     /**
@@ -277,33 +256,26 @@ class GameManager {
      */
     handleMessage(message) {
         switch (message.type) {
-            case 'ROUND_START':
-                this.isDrawer = (message.data.drawerId === this.wsManager.playerId);
-                this.updateGameInfo(message.data);
-                break;
-            case 'DRAWER_WORD':
-                if (this.isDrawer) {
-                    this.showWordSelection(message.data.alternatives);
-                }
-                break;
-            case 'DRAW_START':
+            case MESSAGE_TYPES.DRAW_START:
                 if (message.playerId !== this.wsManager.playerId) {
-                    this.remoteDrawStart(message.data);
+                    this.handleRemoteDrawStart(message.data);
                 }
                 break;
-            case 'DRAW_PATH':
+            case MESSAGE_TYPES.DRAW_MOVE:
                 if (message.playerId !== this.wsManager.playerId) {
-                    this.remoteDrawPath(message.data.points);
+                    this.handleRemoteDrawMove(message.data.points);
                 }
                 break;
-            case 'CLEAR_CANVAS':
+            case MESSAGE_TYPES.DRAW_END:
+                if (message.playerId !== this.wsManager.playerId) {
+                    this.handleRemoteDrawEnd();
+                }
+                break;
+            case MESSAGE_TYPES.CLEAR_CANVAS:
                 this.canvasManager.clearCanvas();
                 break;
-            case 'CHAT_MESSAGE':
-                this.addChatMessage(message.data, message.playerId);
-                break;
-            case 'CORRECT_GUESS':
-                this.showCorrectGuess(message.data);
+            case MESSAGE_TYPES.CHAT_MESSAGE:
+                this.handleChatMessage(message.data, message.playerId);
                 break;
         }
     }
@@ -314,6 +286,7 @@ class GameManager {
     startDrawing(pos) {
         if (!this.isDrawer) return;
         this.canvasManager.startDrawing(pos, this.currentColor, this.currentBrushSize, this.currentTool);
+        this.wsManager.sendDrawStart(pos.x, pos.y, this.currentColor, this.currentBrushSize, this.currentTool);
     }
 
     /**
@@ -322,95 +295,44 @@ class GameManager {
     continueDrawing(pos) {
         if (!this.isDrawer) return;
         this.canvasManager.continueDrawing(pos);
+
+        // Throttle sending points
+        if (!this.drawThrottleTimeout) {
+            this.drawThrottleTimeout = setTimeout(() => {
+                if (this.canvasManager.currentStroke) {
+                    this.wsManager.sendDrawMove(this.canvasManager.currentStroke.points.slice(-5));
+                }
+                this.drawThrottleTimeout = null;
+            }, 16); // ~60fps
+        }
     }
 
     stopDrawing() {
         if (!this.isDrawer) return;
         this.canvasManager.endDrawing();
+        this.wsManager.sendDrawEnd();
     }
 
-    /**
-     * @param {string} text
-     */
-    sendChatMessage(text) {
-        this.wsManager.sendWebSocketMessage({
-            type: 'CHAT_MESSAGE',
-            data: {
-                message: text,
-                isGuess: this.isLikelyGuess(text)
-            }
+    handleRemoteDrawStart(data) {
+        this.canvasManager.startDrawing(
+            { x: data.x, y: data.y },
+            data.color,
+            data.brushSize,
+            data.tool
+        );
+    }
+
+    handleRemoteDrawMove(points) {
+        points.forEach(point => {
+            this.canvasManager.continueDrawing(point);
         });
     }
 
-    /**
-     * @param {string} text
-     * @returns {boolean}
-     */
-    isLikelyGuess(text) {
-        return text.length <= 20 && !/[. !?]/.test(text);
+    handleRemoteDrawEnd() {
+        this.canvasManager.endDrawing();
     }
 
-    /**
-     * @param {Object} data
-     */
-    updateGameInfo(data) {
-        document.getElementById('wordDisplay').textContent = data.wordHint || '_ _ _ _ _';
-        this.startTimer(data.timeLimit || 80);
-    }
-
-    /**
-     * @param {number} seconds
-     */
-    startTimer(seconds) {
-        if (this.timerInterval) {
-            clearInterval(this.timerInterval);
-        }
-        const timerEl = document.getElementById('timer');
-        this.timerInterval = setInterval(() => {
-            timerEl.textContent = seconds + 's';
-            seconds--;
-            if (seconds < 0) {
-                clearInterval(this.timerInterval);
-                timerEl.textContent = '0s';
-            }
-        }, 1000);
-    }
-
-    /**
-     * @param {string[]} words
-     */
-    showWordSelection(words) {
-        const modal = document.getElementById('wordSelection');
-        const options = modal.querySelector('.word-options');
-        options.innerHTML = '';
-        words.forEach(word => {
-            const btn = document.createElement('button');
-            btn.className = 'word-option';
-            btn.textContent = word;
-            btn.onclick = () => this.selectWord(word);
-            options.appendChild(btn);
-        });
-        modal.style.display = 'block';
-    }
-
-    /**
-     * @param {string} word
-     */
-    selectWord(word) {
-        document.getElementById('wordSelection').style.display = 'none';
-        this.wsManager.sendWebSocketMessage({
-            type: 'WORD_SELECTED',
-            data: {
-                selectedWord: word
-            }
-        });
-    }
-
-    /**
-     * @param {Object} data
-     * @param {string} playerId
-     */
-    addChatMessage(data, playerId) {
+    handleChatMessage(data, playerId) {
         const chatMessages = document.getElementById('chatMessages');
         const msgEl = document.createElement('div');
         msgEl.className = 'chat-message';
@@ -422,37 +344,9 @@ class GameManager {
         chatMessages.scrollTop = chatMessages.scrollHeight;
     }
 
-    /**
-     * @param {Object} data
-     */
-    showCorrectGuess(data) {
-        const chatMessages = document.getElementById('chatMessages');
-        const msgEl = document.createElement('div');
-        msgEl.className = 'chat-message correct-guess';
-        msgEl.innerHTML = `<strong>${data.playerName}</strong> guessed correctly!`;
-        chatMessages.appendChild(msgEl);
-        chatMessages.scrollTop = chatMessages.scrollHeight;
-    }
-
-    /**
-     * @param {Object} data
-     */
-    remoteDrawStart(data) {
-        this.canvasManager.startDrawing(
-            { x: data.x, y: data.y },
-            data.color,
-            data.brushSize,
-            data.tool
-        );
-    }
-
-    /**
-     * @param {Point[]} points
-     */
-    remoteDrawPath(points) {
-        points.forEach(point => {
-            this.canvasManager.continueDrawing(point);
-        });
+    sendChatMessage(text) {
+        const isGuess = text.length <= 20 && !/[. !?]/.test(text);
+        this.wsManager.sendChatMessage(text, isGuess);
     }
 }
 
