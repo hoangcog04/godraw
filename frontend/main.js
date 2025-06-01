@@ -29,6 +29,7 @@ const MESSAGE_TYPES = {
     DRAW_MOVE: 'DRAW_MOVE',
     DRAW_END: 'DRAW_END',
     CLEAR_CANVAS: 'CLEAR_CANVAS',
+    UNDO_STROKE: 'UNDO_STROKE',
 
     // Room
     JOIN_ROOM: 'JOIN_ROOM',
@@ -161,7 +162,7 @@ class WebSocketManager {
 
         this.ws.onopen = () => {
             console.log('Connected to server');
-            this.joinRoom();
+            // this.joinRoom();
         };
 
         this.ws.onmessage = (event) => {
@@ -191,6 +192,8 @@ class WebSocketManager {
     }
 
     joinRoom() {
+        // Temporarily disabled due to backend issues
+        /*
         this.sendMessage({
             type: MESSAGE_TYPES.JOIN_ROOM,
             data: {
@@ -198,6 +201,7 @@ class WebSocketManager {
                 avatar: '🎨'
             }
         });
+        */
     }
 
     sendDrawStart(x, y, color, brushSize, tool) {
@@ -232,6 +236,13 @@ class WebSocketManager {
         this.sendMessage({
             type: MESSAGE_TYPES.CHAT_MESSAGE,
             data: { message: text, isGuess }
+        });
+    }
+
+    sendUndoStroke() {
+        this.sendMessage({
+            type: MESSAGE_TYPES.UNDO_STROKE,
+            data: {}
         });
     }
 }
@@ -274,6 +285,10 @@ class GameManager {
             case MESSAGE_TYPES.CLEAR_CANVAS:
                 this.canvasManager.clearCanvas();
                 break;
+            case MESSAGE_TYPES.UNDO_STROKE:
+                console.log('Remote undo stroke');
+                this.canvasManager.undoLastStroke();
+                break;
             case MESSAGE_TYPES.CHAT_MESSAGE:
                 this.handleChatMessage(message.data, message.playerId);
                 break;
@@ -314,6 +329,12 @@ class GameManager {
     }
 
     handleRemoteDrawStart(data) {
+        console.log('Remote draw start:', {
+            position: { x: data.x, y: data.y },
+            color: data.color,
+            brushSize: data.brushSize,
+            tool: data.tool
+        });
         this.canvasManager.startDrawing(
             { x: data.x, y: data.y },
             data.color,
@@ -323,12 +344,17 @@ class GameManager {
     }
 
     handleRemoteDrawMove(points) {
+        console.log('Remote draw move:', {
+            points: points,
+            numberOfPoints: points.length
+        });
         points.forEach(point => {
             this.canvasManager.continueDrawing(point);
         });
     }
 
     handleRemoteDrawEnd() {
+        console.log('Remote draw end');
         this.canvasManager.endDrawing();
     }
 
@@ -399,10 +425,16 @@ class UIManager {
 
     setupUndoClear() {
         const btnUndo = document.querySelector("#button-undo");
-        btnUndo.addEventListener('click', () => this.gameManager.canvasManager.undoLastStroke());
+        btnUndo.addEventListener('click', () => {
+            this.gameManager.canvasManager.undoLastStroke();
+            this.gameManager.wsManager.sendUndoStroke();
+        });
 
         const btnClear = document.querySelector("#button-clear");
-        btnClear.addEventListener('click', () => this.gameManager.canvasManager.clearCanvas());
+        btnClear.addEventListener('click', () => {
+            this.gameManager.canvasManager.clearCanvas();
+            this.gameManager.wsManager.sendClearCanvas();
+        });
     }
 
     setupChat() {

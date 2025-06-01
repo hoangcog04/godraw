@@ -9,23 +9,22 @@ import (
 )
 
 const (
-	writeWait      = 10 * time.Second
 	pongWait       = 60 * time.Second
 	pingPeriod     = (pongWait * 9) / 10
 	maxMessageSize = 512
 )
 
-type Client struct {
+type client struct {
 	conn *websocket.Conn
-	hub  *Hub
+	hub  *hub
 	send chan []byte
 }
 
-func NewClient(c *websocket.Conn, h *Hub) *Client {
-	return &Client{c, h, make(chan []byte)}
+func NewClient(c *websocket.Conn, h *hub) *client {
+	return &client{c, h, make(chan []byte)}
 }
 
-func (c *Client) ReadMessage() {
+func (c *client) readMessage() {
 	defer func() {
 		c.hub.removeClient(c)
 	}()
@@ -38,30 +37,29 @@ func (c *Client) ReadMessage() {
 		return nil
 	})
 
-	// Vòng lặp liên tục đọc tin nhắn từ một client
+	// Loop to read messages from a single client
 	for {
-		_, message, err := c.conn.ReadMessage()
+		_, payload, err := c.conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				log.Printf("error: %v", err)
+				log.Printf("error from readmsg: %v", err)
 			}
 			break
 		}
 
-		var incomingMsg IncomingMsg
-		if err := json.Unmarshal(message, &incomingMsg); err != nil {
-			log.Printf("error unmarshaling message: %v", err)
-			continue
+		var msg Message
+		if err := json.Unmarshal(payload, &msg); err != nil {
+			log.Printf("error unmarshaling message from readmsg: %v, message: %s", err, string(payload))
 		}
+		log.Println("Received message: ", msg)
 
-		if err := c.hub.routeEvent(incomingMsg, c); err != nil {
-			log.Printf("error routing event: %v", err)
-		}
+		c.hub.broadcast(msg, c)
 	}
 }
 
-func (c *Client) WriteMessage() {
+func (c *client) writeMessage() {
 	ticker := time.NewTicker(pingPeriod)
+
 	defer func() {
 		ticker.Stop()
 		c.hub.removeClient(c)
@@ -69,27 +67,20 @@ func (c *Client) WriteMessage() {
 
 	for {
 		select {
-		case message, ok := <-c.send:
+		case msg, ok := <-c.send:
 			if !ok {
 				if err := c.conn.WriteMessage(websocket.CloseMessage, nil); err != nil {
-					log.Println("connection closed", err)
+					log.Println("connection closed from writemsg", err)
 				}
 				return
 			}
 
-			data, err := json.Marshal(message)
-			if err != nil {
-				log.Println(err)
-				return
+			if err := c.conn.WriteMessage(websocket.TextMessage, msg); err != nil {
+				log.Printf("failed to send message from writemsg: %v", err)
 			}
 
-			if err := c.conn.WriteMessage(websocket.TextMessage, data); err != nil {
-				log.Printf("failed to send message: %v", err)
-			}
-
-			log.Println("message sent")
+			log.Println("message sent from: ", c)
 		case <-ticker.C:
-			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 				return
 			}

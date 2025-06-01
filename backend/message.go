@@ -2,16 +2,10 @@ package main
 
 import "encoding/json"
 
-const BroadcaseMsgType string = "broadcast"
-
-type IncomingMsg struct {
-	Type    string          `json:"type"`
-	Payload json.RawMessage `json:"payload"`
+type Message struct {
+	Type      string          `json:"type"`
+	Data      json.RawMessage `json:"data"`
+	RoomId    string          `json:"roomId"`
+	PlayerId  string          `json:"playerId"`
+	Timestamp int64           `json:"timestamp"`
 }
-
-type OutgoingMsg struct {
-	Message string `json:"message"`
-	From    string `json:"from"`
-}
-
-type MsgHandler func(m IncomingMsg, c *Client) error

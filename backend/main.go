@@ -6,10 +6,10 @@ import (
 )
 
 func main() {
-	hub := newHub()
+	hub := NewHub()
 
 	http.Handle("/", http.FileServer(http.Dir("../frontend")))
-	http.HandleFunc("/ws", hub.serveWS)
+	http.HandleFunc("/ws", hub.Serve)
 
 	err := http.ListenAndServe(":8080", nil)
 	if err != nil {
