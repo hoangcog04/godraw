@@ -1,4 +1,4 @@
-package main
+package ws
 
 import (
 	"encoding/json"
@@ -46,12 +46,12 @@ func (c *client) readMessage() {
 			}
 			break
 		}
+		log.Println("Received message: ", payload)
 
 		var msg Message
 		if err := json.Unmarshal(payload, &msg); err != nil {
 			log.Printf("error unmarshaling message from readmsg: %v, message: %s", err, string(payload))
 		}
-		log.Println("Received message: ", msg)
 
 		c.hub.broadcast(msg, c)
 	}
@@ -79,7 +79,7 @@ func (c *client) writeMessage() {
 				log.Printf("failed to send message from writemsg: %v", err)
 			}
 
-			log.Println("message sent from: ", c)
+			log.Println("message sent")
 		case <-ticker.C:
 			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 				return

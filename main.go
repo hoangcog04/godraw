@@ -3,12 +3,14 @@ package main
 import (
 	"log"
 	"net/http"
+
+	"godraw/core/ws"
 )
 
 func main() {
-	hub := NewHub()
+	hub := ws.NewHub()
 
-	http.Handle("/", http.FileServer(http.Dir("../frontend")))
+	http.Handle("/", http.FileServer(http.Dir("./static")))
 	http.HandleFunc("/ws", hub.Serve)
 
 	err := http.ListenAndServe(":8080", nil)
