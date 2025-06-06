@@ -1,3 +1,4 @@
+// drawer.js - chỉ dành cho người vẽ
 let isDrawing = false;
 let drawWidth = 5;
 let drawColor = "black";
@@ -11,17 +12,14 @@ const ws = new WebSocket("ws://localhost:8080/ws");
 ws.onopen = function () {
   console.log("WebSocket connection established");
 };
-
 ws.onclose = function () {
   console.log("WebSocket connection closed");
 };
-
 ws.onerror = function (error) {
   console.error("WebSocket error:", error);
 };
 
 const canvas = document.getElementById("drawingCanvas");
-
 const rect = canvas.getBoundingClientRect();
 const ratio = window.devicePixelRatio || 1;
 canvas.width = rect.width * ratio;
@@ -134,19 +132,8 @@ function clearCanvas() {
 }
 
 const clearButton = document.getElementById("button-clear");
-clearButton.addEventListener("click", () => {
-  clearCanvas();
-  ws.send(
-    JSON.stringify({
-      type: "clear",
-      data: {},
-    })
-  );
-});
-
-const undoButton = document.getElementById("button-undo");
-undoButton.addEventListener("click", () => {
-  if (restoreIndex <= 0) {
+if (clearButton) {
+  clearButton.addEventListener("click", () => {
     clearCanvas();
     ws.send(
       JSON.stringify({
@@ -154,18 +141,33 @@ undoButton.addEventListener("click", () => {
         data: {},
       })
     );
-  } else {
-    restoreIndex -= 1;
-    restoreDraw.pop();
-    ctx.putImageData(restoreDraw[restoreIndex], 0, 0);
-    ws.send(
-      JSON.stringify({
-        type: "undo",
-        data: {},
-      })
-    );
-  }
-});
+  });
+}
+
+const undoButton = document.getElementById("button-undo");
+if (undoButton) {
+  undoButton.addEventListener("click", () => {
+    if (restoreIndex <= 0) {
+      clearCanvas();
+      ws.send(
+        JSON.stringify({
+          type: "clear",
+          data: {},
+        })
+      );
+    } else {
+      restoreIndex -= 1;
+      restoreDraw.pop();
+      ctx.putImageData(restoreDraw[restoreIndex], 0, 0);
+      ws.send(
+        JSON.stringify({
+          type: "undo",
+          data: {},
+        })
+      );
+    }
+  });
+}
 
 ws.onmessage = function (event) {
   const message = JSON.parse(event.data);
@@ -194,7 +196,9 @@ colorButtons.forEach((button) => {
 
 const brushSize = document.getElementById("brushSize");
 const sizeDisplay = document.getElementById("sizeDisplay");
-brushSize.addEventListener("input", (e) => {
-  drawWidth = parseInt(e.target.value);
-  sizeDisplay.textContent = drawWidth + "px";
-});
+if (brushSize && sizeDisplay) {
+  brushSize.addEventListener("input", (e) => {
+    drawWidth = parseInt(e.target.value);
+    sizeDisplay.textContent = drawWidth + "px";
+  });
+}
