@@ -35,6 +35,7 @@ func (h *hub) broadcast(msg Message, sender *client) {
 			select {
 			case client.send <- data:
 			default:
+				log.Println("forced to close client")
 				close(client.send)
 				delete(h.clients, client)
 			}
@@ -43,13 +44,13 @@ func (h *hub) broadcast(msg Message, sender *client) {
 }
 
 func (h *hub) Serve(w http.ResponseWriter, r *http.Request) {
-	log.Println("new connection")
-
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println(err)
 		return
 	}
+
+	log.Println("new connection")
 
 	client := NewClient(conn, h)
 	h.addClient(client)

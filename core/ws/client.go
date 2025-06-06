@@ -21,7 +21,7 @@ type client struct {
 }
 
 func NewClient(c *websocket.Conn, h *hub) *client {
-	return &client{c, h, make(chan []byte)}
+	return &client{c, h, make(chan []byte, 16)}
 }
 
 func (c *client) readMessage() {
