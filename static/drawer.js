@@ -1,4 +1,3 @@
-// drawer.js - chỉ dành cho người vẽ
 let isDrawing = false;
 let drawWidth = 5;
 let drawColor = "black";
@@ -7,7 +6,18 @@ let restoreIndex = -1;
 
 const defaultColor = "white";
 
-const ws = new WebSocket("ws://localhost:8080/ws");
+// Get room key from URL
+const urlParams = new URLSearchParams(window.location.search);
+const roomKey = urlParams.get("key");
+
+if (!roomKey) {
+  alert("Không tìm thấy mã phòng!");
+  window.location.href = "index.html";
+}
+
+const ws = new WebSocket(
+  `ws://localhost:8080/ws?key=${encodeURIComponent(roomKey)}`
+);
 
 ws.onopen = function () {
   console.log("WebSocket connection established");
@@ -17,6 +27,8 @@ ws.onclose = function () {
 };
 ws.onerror = function (error) {
   console.error("WebSocket error:", error);
+  alert("Không thể kết nối đến phòng. Phòng có thể không tồn tại.");
+  window.location.href = "index.html";
 };
 
 const canvas = document.getElementById("drawingCanvas");

@@ -9,35 +9,32 @@ import (
 )
 
 const (
-	pongWait       = 60 * time.Second
-	pingPeriod     = (pongWait * 9) / 10
-	maxMessageSize = 512
+	PongWait       = time.Second * 60
+	PingPeriod     = (PongWait * 9) / 10
+	MaxMessageSize = 512
 )
 
 type client struct {
 	conn *websocket.Conn
-	hub  *hub
+	room *room
 	send chan []byte
 }
 
-func NewClient(c *websocket.Conn, h *hub) *client {
-	return &client{c, h, make(chan []byte, 16)}
+func newClient(c *websocket.Conn, r *room) *client {
+	return &client{c, r, make(chan []byte, 16)}
 }
 
 func (c *client) readMessage() {
-	defer func() {
-		c.hub.removeClient(c)
-	}()
+	defer func() { c.room.delClient(c) }()
 
-	c.conn.SetReadLimit(maxMessageSize)
-	c.conn.SetReadDeadline(time.Now().Add(pongWait))
+	c.conn.SetReadLimit(MaxMessageSize)
+	c.conn.SetReadDeadline(time.Now().Add(PongWait))
 	c.conn.SetPongHandler(func(string) error {
 		log.Println("pong")
-		c.conn.SetReadDeadline(time.Now().Add(pongWait))
+		c.conn.SetReadDeadline(time.Now().Add(PongWait))
 		return nil
 	})
 
-	// Loop to read messages from a single client
 	for {
 		_, payload, err := c.conn.ReadMessage()
 		if err != nil {
@@ -53,16 +50,16 @@ func (c *client) readMessage() {
 			log.Printf("error unmarshaling message from readmsg: %v, message: %s", err, string(payload))
 		}
 
-		c.hub.broadcast(msg, c)
+		c.room.broadcast(msg, c)
 	}
 }
 
 func (c *client) writeMessage() {
-	ticker := time.NewTicker(pingPeriod)
+	ticker := time.NewTicker(PingPeriod)
 
 	defer func() {
 		ticker.Stop()
-		c.hub.removeClient(c)
+		c.room.delClient(c)
 	}()
 
 	for {

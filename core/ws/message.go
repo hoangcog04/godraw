@@ -9,3 +9,8 @@ type Message struct {
 	PlayerId  string          `json:"playerId"`
 	Timestamp int64           `json:"timestamp"`
 }
+
+type Room struct {
+	Key     string `json:"id"`
+	Players int    `json:"players"`
+}
