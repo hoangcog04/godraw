@@ -4,11 +4,11 @@ import (
 	"log"
 	"net/http"
 
-	"godraw/core/ws"
+	"godraw/core"
 )
 
 func main() {
-	hub := ws.NewHub()
+	hub := core.NewHub()
 	hub.AddRoom()
 	hub.AddRoom()
 
