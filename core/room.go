@@ -60,7 +60,7 @@ func (r *room) delClient(c *client) {
 	r.Lock()
 	defer r.Unlock()
 
-	if _, exists := r.clients[c]; exists {
+	if _, ok := r.clients[c]; ok {
 		c.conn.Close()
 		delete(r.clients, c)
 	}

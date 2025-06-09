@@ -14,7 +14,7 @@ func main() {
 
 	http.Handle("/", http.FileServer(http.Dir("./static")))
 	http.HandleFunc("/ws", hub.Join)
-	http.HandleFunc("/rooms", hub.ShowRooms)
+	http.HandleFunc("/rooms", hub.ListRoomAPI)
 
 	err := http.ListenAndServe(":8080", nil)
 	if err != nil {
