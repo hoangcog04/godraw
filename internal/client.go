@@ -1,4 +1,4 @@
-package core
+package internal
 
 import (
 	"encoding/json"
@@ -15,17 +15,22 @@ const (
 )
 
 type client struct {
+	// Websocket connection.
 	conn *websocket.Conn
+	// Client's room.
 	room *room
+	// A channel used to deliver outbound messages to the client.
 	send chan []byte
 }
 
-func newClient(c *websocket.Conn, r *room) *client {
+func NewClient(c *websocket.Conn, r *room) *client {
 	return &client{c, r, make(chan []byte, 16)}
 }
 
-func (c *client) readMessage() {
-	defer func() { c.room.delClient(c) }()
+func (c *client) ReadMessage() {
+	defer func() {
+		c.room.unregister <- c
+	}()
 
 	c.conn.SetReadLimit(MaxMessageSize)
 	c.conn.SetReadDeadline(time.Now().Add(PongWait))
@@ -36,30 +41,29 @@ func (c *client) readMessage() {
 	})
 
 	for {
-		_, payload, err := c.conn.ReadMessage()
+		_, p, err := c.conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
 				log.Printf("error from readmsg: %v", err)
 			}
-			break
+			return
 		}
-		log.Println("Received message: ", payload)
 
 		var msg Message
-		if err := json.Unmarshal(payload, &msg); err != nil {
-			log.Printf("error unmarshaling message from readmsg: %v, message: %s", err, string(payload))
+		if err := json.Unmarshal(p, &msg); err != nil {
+			log.Printf("error unmarshaling message from readmsg: %v, message: %s", err, string(p))
 		}
 
-		c.room.broadcast(msg, c)
+		c.room.broadcast <- payload{msg, c}
 	}
 }
 
-func (c *client) writeMessage() {
+func (c *client) WriteMessage() {
 	ticker := time.NewTicker(PingPeriod)
 
 	defer func() {
 		ticker.Stop()
-		c.room.delClient(c)
+		c.room.unregister <- c
 	}()
 
 	for {
