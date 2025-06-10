@@ -3,6 +3,7 @@ package internal
 import (
 	"encoding/json"
 	"log"
+	"sync"
 )
 
 type room struct {
@@ -10,21 +11,22 @@ type room struct {
 	key string
 	// Clients in room.
 	clients map[*client]bool
-	// Register a client.
-	register chan *client
-	// Unregister a client.
-	unregister chan *client
+	// Name of the host who created the game
+	hostname string
 	// Broadcast to every all clients.
 	broadcast chan payload
+	// Game state
+	gamestate *GameState
+	mu        sync.RWMutex
 }
 
 func NewRoom(k string) *room {
+	gs := NewGameState()
 	r := &room{
-		key:        k,
-		clients:    make(map[*client]bool),
-		register:   make(chan *client),
-		unregister: make(chan *client),
-		broadcast:  make(chan payload),
+		key:       k,
+		clients:   make(map[*client]bool),
+		broadcast: make(chan payload),
+		gamestate: gs,
 	}
 	go r.runManager()
 	return r
@@ -33,18 +35,6 @@ func NewRoom(k string) *room {
 func (r *room) runManager() {
 	for {
 		select {
-		case c := <-r.register:
-			r.clients[c] = true
-			log.Println("Size of connected clients: ", len(r.clients))
-		case c := <-r.unregister:
-			c.conn.Close()
-			// fix
-			_, ok := <-c.send
-			if !ok {
-				close(c.send)
-			}
-			delete(r.clients, c)
-			log.Println("Size of connected clients: ", len(r.clients))
 		case p := <-r.broadcast:
 			log.Println("Sending message to all clients")
 			r.sendAll(p.msg, p.sender)
@@ -53,7 +43,22 @@ func (r *room) runManager() {
 }
 
 func (r *room) addClient(c *client) {
-	r.register <- c
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.clients[c] = true
+	log.Println("Size of connected clients: ", len(r.clients))
+	if len(r.clients) == 1 {
+		r.hostname = c.username
+		log.Println("You got promoted to head of the lobby")
+	}
+}
+
+func (r *room) removeClient(c *client) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	delete(r.clients, c)
+	c.conn.Close()
+	log.Println("Size of connected clients: ", len(r.clients))
 }
 
 func (r *room) sendAll(msg Message, sender *client) {
@@ -69,7 +74,7 @@ func (r *room) sendAll(msg Message, sender *client) {
 			case c.send <- data:
 			default:
 				log.Println("forced to close client")
-				c.room.unregister <- c
+				r.removeClient(c)
 			}
 		}
 	}

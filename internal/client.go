@@ -19,17 +19,20 @@ type client struct {
 	conn *websocket.Conn
 	// Client's room.
 	room *room
+	// Client's username.
+	username string
 	// A channel used to deliver outbound messages to the client.
 	send chan []byte
 }
 
-func NewClient(c *websocket.Conn, r *room) *client {
-	return &client{c, r, make(chan []byte, 16)}
+func NewClient(c *websocket.Conn, r *room, uname string) *client {
+	return &client{c, r, uname, make(chan []byte, 16)}
 }
 
-func (c *client) ReadMessage() {
+func (c *client) readMessage() {
 	defer func() {
-		c.room.unregister <- c
+		c.room.removeClient(c)
+		close(c.send)
 	}()
 
 	c.conn.SetReadLimit(MaxMessageSize)
@@ -58,12 +61,12 @@ func (c *client) ReadMessage() {
 	}
 }
 
-func (c *client) WriteMessage() {
+func (c *client) writeMessage() {
 	ticker := time.NewTicker(PingPeriod)
 
 	defer func() {
 		ticker.Stop()
-		c.room.unregister <- c
+		c.room.removeClient(c)
 	}()
 
 	for {

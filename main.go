@@ -8,12 +8,12 @@ import (
 
 func main() {
 	hub := internal.NewGame()
-	hub.AddRoom()
-	hub.AddRoom()
 
 	http.Handle("/", http.FileServer(http.Dir("./static")))
-	http.HandleFunc("/ws", hub.JoinRoom)
+	http.HandleFunc("/join-room", hub.JoinRoom)
 	http.HandleFunc("/rooms", hub.ListRoom)
+	http.HandleFunc("/create-room", hub.CreateRoom)
+	http.HandleFunc("/room-status", hub.RoomStatus)
 
 	http.ListenAndServe(":8080", nil)
 }

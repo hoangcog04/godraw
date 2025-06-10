@@ -19,20 +19,46 @@
         margin-bottom: 32px;
       }
 
-      .room-input {
+      .main-container {
+        display: flex;
+        gap: 48px;
+        align-items: flex-start;
+      }
+
+      .create-room-section,
+      .join-room-section {
+        background: white;
+        border-radius: 16px;
+        padding: 32px;
+        box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+        width: 350px;
+      }
+
+      .section-title {
+        font-size: 24px;
+        font-weight: bold;
+        color: #1e40af;
+        margin-bottom: 24px;
+        text-align: center;
+      }
+
+      .room-input,
+      .username-input {
         margin-bottom: 24px;
         padding: 12px;
         font-size: 16px;
         border: 2px solid #2563eb;
         border-radius: 8px;
-        width: 300px;
+        width: 100%;
+        box-sizing: border-box;
         text-align: center;
       }
 
-      .role-btn {
+      .role-btn,
+      .create-btn {
         font-size: 20px;
         padding: 16px 40px;
-        margin: 12px;
+        margin: 12px 0;
         border-radius: 12px;
         border: none;
         background: #2563eb;
@@ -40,20 +66,36 @@
         cursor: pointer;
         font-weight: bold;
         transition: background 0.2s;
+        width: 100%;
+        box-sizing: border-box;
       }
 
-      .role-btn:hover {
+      .role-btn:hover,
+      .create-btn:hover {
         background: #1d4ed8;
       }
 
-      .role-btn:disabled {
+      .role-btn:disabled,
+      .create-btn:disabled {
         background: #93c5fd;
         cursor: not-allowed;
       }
 
+      .create-btn {
+        background: #16a34a;
+      }
+
+      .create-btn:hover {
+        background: #15803d;
+      }
+
+      .create-btn:disabled {
+        background: #86efac;
+      }
+
       .rooms-list {
         margin-top: 32px;
-        width: 300px;
+        width: 350px;
         background: white;
         border-radius: 12px;
         padding: 16px;
@@ -124,24 +166,82 @@
         color: #64748b;
         padding: 16px;
       }
+
+      .error-message {
+        color: #dc2626;
+        font-size: 14px;
+        margin-top: 8px;
+        text-align: center;
+      }
+
+      .loading {
+        opacity: 0.6;
+        pointer-events: none;
+      }
     </style>
   </head>
 
   <body>
     <div class="role-select">
-      <h1>Chọn vai trò để bắt đầu</h1>
-      <input
-        type="text"
-        id="roomKey"
-        class="room-input"
-        placeholder="Nhập mã phòng"
-      />
-      <button class="role-btn" onclick="joinRoom('drawer')" id="drawerBtn">
-        Người vẽ
-      </button>
-      <button class="role-btn" onclick="joinRoom('guesser')" id="guesserBtn">
-        Người đoán
-      </button>
+      <h1>Scribble It - Game Lobby</h1>
+
+      <div class="main-container">
+        <!-- Phần tạo phòng mới -->
+        <div class="create-room-section">
+          <h2 class="section-title">Tạo phòng mới</h2>
+          <input
+            type="text"
+            id="usernameInput"
+            class="username-input"
+            placeholder="Nhập tên của bạn"
+            maxlength="20"
+          />
+          <button
+            class="create-btn"
+            onclick="createRoom()"
+            id="createBtn"
+            disabled
+          >
+            Tạo phòng
+          </button>
+          <div
+            id="createRoomError"
+            class="error-message"
+            style="display: none"
+          ></div>
+        </div>
+
+        <!-- Phần tham gia phòng (chức năng cũ) -->
+        <div class="join-room-section">
+          <h2 class="section-title">Tham gia phòng</h2>
+          <input
+            type="text"
+            id="joinUsernameInput"
+            class="username-input"
+            placeholder="Nhập tên của bạn"
+            maxlength="20"
+          />
+          <input
+            type="text"
+            id="roomKey"
+            class="room-input"
+            placeholder="Nhập mã phòng"
+          />
+          <button
+            class="role-btn"
+            onclick="joinRoom()"
+            id="joinRoomBtn"
+            disabled
+          >
+            Tham gia phòng
+          </button>
+          <div
+            id="joinRoomError"
+            class="error-message"
+            style="display: none"
+          ></div>
+        </div>
+      </div>
 
       <div class="rooms-list">
         <h2>Phòng đang chơi</h2>
@@ -174,22 +274,83 @@
 
     <script>
       const roomKeyInput = document.getElementById("roomKey");
-      const drawerBtn = document.getElementById("drawerBtn");
-      const guesserBtn = document.getElementById("guesserBtn");
+      const usernameInput = document.getElementById("usernameInput");
+      const joinUsernameInput = document.getElementById("joinUsernameInput");
+      const joinRoomBtn = document.getElementById("joinRoomBtn");
+      const createBtn = document.getElementById("createBtn");
       const roomsList = document.getElementById("roomsList");
+      const createRoomError = document.getElementById("createRoomError");
+      const joinRoomError = document.getElementById("joinRoomError");
 
-      drawerBtn.disabled = true;
-      guesserBtn.disabled = true;
+      createBtn.disabled = true;
+      joinRoomBtn.disabled = true;
 
-      function joinRoom(role) {
-        const roomKey = roomKeyInput.value.trim();
-        if (!roomKey) {
-          alert("Vui lòng nhập mã phòng!");
+      // Tạo phòng mới
+      async function createRoom() {
+        const username = usernameInput.value.trim();
+        if (!username) {
+          showError(createRoomError, "Vui lòng nhập tên của bạn!");
           return;
         }
-        window.location.href = `${role}.html?key=${encodeURIComponent(
+
+        createBtn.disabled = true;
+        createBtn.textContent = "Đang tạo...";
+        createBtn.classList.add("loading");
+        hideError(createRoomError);
+
+        try {
+          const response = await fetch("/create-room", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ username: username }),
+          });
+
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+
+          const data = await response.json();
+
+          // Lưu thông tin và chuyển hướng đến phòng chờ
+          sessionStorage.setItem("roomKey", data.key);
+          sessionStorage.setItem("username", data.username);
+          sessionStorage.setItem("isHost", "true");
+
+          window.location.href = `waiting-room.html?key=${encodeURIComponent(
+            data.key
+          )}&username=${encodeURIComponent(data.username)}`;
+        } catch (error) {
+          console.error("Error creating room:", error);
+          showError(createRoomError, "Lỗi khi tạo phòng. Vui lòng thử lại!");
+        } finally {
+          createBtn.disabled = false;
+          createBtn.textContent = "Tạo phòng";
+          createBtn.classList.remove("loading");
+        }
+      }
+
+      // Tham gia phòng (mới)
+      function joinRoom() {
+        const roomKey = roomKeyInput.value.trim();
+        const username = joinUsernameInput.value.trim();
+        if (!roomKey) {
+          showError(joinRoomError, "Vui lòng nhập mã phòng!");
+          return;
+        }
+        if (!username) {
+          showError(joinRoomError, "Vui lòng nhập tên của bạn!");
+          return;
+        }
+        hideError(joinRoomError);
+        // Lưu vào sessionStorage để waiting-room.html dùng
+        sessionStorage.setItem("roomKey", roomKey);
+        sessionStorage.setItem("username", username);
+        sessionStorage.setItem("isHost", "false");
+        window.location.href = `waiting-room.html?key=${encodeURIComponent(
           roomKey
-        )}`;
+        )}&username=${encodeURIComponent(username)}`;
       }
 
       function loadRooms() {
@@ -235,10 +396,47 @@
         roomKeyInput.dispatchEvent(new Event("input"));
       }
 
+      function showError(errorElement, message) {
+        errorElement.textContent = message;
+        errorElement.style.display = "block";
+      }
+
+      function hideError(errorElement) {
+        errorElement.style.display = "none";
+      }
+
+      // Event listeners
       roomKeyInput.addEventListener("input", function () {
         const hasRoomKey = this.value.trim().length > 0;
-        drawerBtn.disabled = !hasRoomKey;
-        guesserBtn.disabled = !hasRoomKey;
+        const hasUsername = joinUsernameInput.value.trim().length > 0;
+        joinRoomBtn.disabled = !(hasRoomKey && hasUsername);
+        hideError(joinRoomError);
+      });
+      joinUsernameInput.addEventListener("input", function () {
+        const hasRoomKey = roomKeyInput.value.trim().length > 0;
+        const hasUsername = this.value.trim().length > 0;
+        joinRoomBtn.disabled = !(hasRoomKey && hasUsername);
+        hideError(joinRoomError);
+      });
+      joinUsernameInput.addEventListener("keypress", function (event) {
+        if (event.key === "Enter" && !joinRoomBtn.disabled) {
+          joinRoom();
+        }
+      });
+      roomKeyInput.addEventListener("keypress", function (event) {
+        if (event.key === "Enter" && !joinRoomBtn.disabled) {
+          joinRoom();
+        }
+      });
+      usernameInput.addEventListener("input", function () {
+        const hasUsername = this.value.trim().length > 0;
+        createBtn.disabled = !hasUsername;
+        hideError(createRoomError);
+      });
+      usernameInput.addEventListener("keypress", function (event) {
+        if (event.key === "Enter" && !createBtn.disabled) {
+          createRoom();
+        }
       });
 
       loadRooms();

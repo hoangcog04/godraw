@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Phòng chờ - Scribble It</title>
+    <link rel="stylesheet" href="style.css" />
+    <style>
+      .waiting-room {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        background: #f3f4f6;
+        padding: 24px;
+      }
+
+      .room-container {
+        background: white;
+        border-radius: 20px;
+        padding: 40px;
+        box-shadow: 0 10px 25px rgb(0 0 0 / 0.1);
+        max-width: 800px;
+        width: 100%;
+      }
+
+      .room-header {
+        text-align: center;
+        margin-bottom: 40px;
+      }
+
+      .room-title {
+        font-size: 28px;
+        font-weight: bold;
+        color: #1e40af;
+        margin-bottom: 8px;
+      }
+
+      .room-key {
+        font-size: 24px;
+        font-weight: bold;
+        color: #059669;
+        background: #d1fae5;
+        padding: 12px 24px;
+        border-radius: 12px;
+        display: inline-block;
+        letter-spacing: 2px;
+        margin-bottom: 16px;
+      }
+
+      .room-info {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: #f8fafc;
+        padding: 16px 24px;
+        border-radius: 12px;
+        margin-bottom: 32px;
+      }
+
+      .info-item {
+        text-align: center;
+      }
+
+      .info-label {
+        font-size: 14px;
+        color: #64748b;
+        margin-bottom: 4px;
+      }
+
+      .info-value {
+        font-size: 18px;
+        font-weight: bold;
+        color: #1e293b;
+      }
+
+      .players-section {
+        margin-bottom: 32px;
+      }
+
+      .players-title {
+        font-size: 20px;
+        font-weight: bold;
+        color: #1e40af;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .players-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 16px;
+      }
+
+      .player-card {
+        background: white;
+        border: 2px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 20px;
+        text-align: center;
+        transition: all 0.3s ease;
+      }
+
+      .player-card.host {
+        border-color: #f59e0b;
+        background: #fffbeb;
+      }
+
+      .player-card.drawer {
+        border-color: #10b981;
+        background: #f0fdf4;
+      }
+
+      .player-avatar {
+        width: 60px;
+        height: 60px;
+        background: #e2e8f0;
+        border-radius: 50%;
+        margin: 0 auto 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        font-weight: bold;
+        color: #475569;
+      }
+
+      .player-card.host .player-avatar {
+        background: #fbbf24;
+        color: white;
+      }
+
+      .player-card.drawer .player-avatar {
+        background: #10b981;
+        color: white;
+      }
+
+      .player-name {
+        font-weight: bold;
+        color: #1e293b;
+        margin-bottom: 4px;
+      }
+
+      .player-role {
+        font-size: 14px;
+        color: #64748b;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+      }
+
+      .host-badge {
+        background: #f59e0b;
+        color: white;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 12px;
+      }
+
+      .actions {
+        display: flex;
+        gap: 16px;
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+
+      .btn {
+        padding: 12px 24px;
+        border-radius: 8px;
+        border: none;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-size: 16px;
+      }
+
+      .btn-primary {
+        background: #2563eb;
+        color: white;
+      }
+
+      .btn-primary:hover {
+        background: #1d4ed8;
+      }
+
+      .btn-secondary {
+        background: #64748b;
+        color: white;
+      }
+
+      .btn-secondary:hover {
+        background: #475569;
+      }
+
+      .btn-success {
+        background: #16a34a;
+        color: white;
+      }
+
+      .btn-success:hover {
+        background: #15803d;
+      }
+
+      .btn:disabled {
+        background: #94a3b8;
+        cursor: not-allowed;
+      }
+
+      .status-indicator {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        justify-content: center;
+        margin-bottom: 16px;
+      }
+
+      .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #10b981;
+        animation: pulse 2s infinite;
+      }
+
+      .status-dot.disconnected {
+        background: #ef4444;
+      }
+
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+
+        50% {
+          opacity: 0.5;
+        }
+      }
+
+      .loading-message {
+        text-align: center;
+        color: #64748b;
+        font-style: italic;
+      }
+
+      .error-message {
+        background: #fef2f2;
+        border: 1px solid #fecaca;
+        color: #dc2626;
+        padding: 12px;
+        border-radius: 8px;
+        margin-bottom: 16px;
+        text-align: center;
+      }
+
+      .copy-btn {
+        background: none;
+        border: none;
+        color: #2563eb;
+        cursor: pointer;
+        margin-left: 8px;
+        padding: 4px;
+        border-radius: 4px;
+        transition: background 0.2s;
+      }
+
+      .copy-btn:hover {
+        background: #dbeafe;
+      }
+
+      @media (max-width: 768px) {
+        .room-container {
+          padding: 24px;
+          margin: 16px;
+        }
+
+        .room-info {
+          flex-direction: column;
+          gap: 16px;
+        }
+
+        .players-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .actions {
+          flex-direction: column;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="waiting-room">
+      <div class="room-container">
+        <div class="room-header">
+          <h1 class="room-title">Phòng chờ</h1>
+          <div class="room-key" id="roomKeyDisplay">
+            <span id="roomKeyText">LOADING...</span>
+            <button
+              class="copy-btn"
+              onclick="copyRoomKey()"
+              title="Sao chép mã phòng"
+            >
+              📋
+            </button>
+          </div>
+          <div class="status-indicator">
+            <div class="status-dot" id="statusDot"></div>
+            <span id="connectionStatus">Đang kết nối...</span>
+          </div>
+        </div>
+
+        <div class="room-info">
+          <div class="info-item">
+            <div class="info-label">Số người chơi</div>
+            <div class="info-value" id="playerCount">0</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Chủ phòng</div>
+            <div class="info-value" id="hostName">-</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Trạng thái</div>
+            <div class="info-value" id="roomStatus">Chờ người chơi</div>
+          </div>
+        </div>
+
+        <div id="errorContainer" style="display: none">
+          <div class="error-message" id="errorMessage"></div>
+        </div>
+
+        <div class="players-section">
+          <h2 class="players-title">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+              <circle cx="9" cy="7" r="4"></circle>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+            </svg>
+            Người chơi trong phòng
+          </h2>
+          <div class="players-grid" id="playersGrid">
+            <div class="loading-message">Đang tải danh sách người chơi...</div>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button class="btn btn-secondary" onclick="leaveRoom()">
+            Rời khỏi phòng
+          </button>
+          <button class="btn btn-primary" onclick="copyRoomKey()">
+            Sao chép mã phòng
+          </button>
+          <button
+            class="btn btn-success"
+            id="startGameBtn"
+            onclick="startGame()"
+            disabled
+          >
+            Bắt đầu game
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      let ws = null;
+      let roomKey = "";
+      let username = "";
+      let isHost = false;
+      let statusCheckInterval = null;
+      let reconnectAttempts = 0;
+      const maxReconnectAttempts = 5;
+
+      // Khởi tạo
+      document.addEventListener("DOMContentLoaded", function () {
+        initializeRoom();
+      });
+
+      function initializeRoom() {
+        // Lấy thông tin từ URL hoặc sessionStorage
+        const urlParams = new URLSearchParams(window.location.search);
+        roomKey = urlParams.get("key") || sessionStorage.getItem("roomKey");
+        username =
+          urlParams.get("username") || sessionStorage.getItem("username");
+        isHost = sessionStorage.getItem("isHost") === "true";
+
+        if (!roomKey || !username) {
+          showError("Thông tin phòng không hợp lệ. Đang chuyển hướng...");
+          setTimeout(() => {
+            window.location.href = "index.html";
+          }, 2000);
+          return;
+        }
+
+        document.getElementById("roomKeyText").textContent = roomKey;
+
+        // Kết nối WebSocket
+        connectWebSocket();
+
+        // Bắt đầu kiểm tra trạng thái phòng
+        startStatusCheck();
+      }
+
+      function connectWebSocket() {
+        try {
+          const protocol =
+            window.location.protocol === "https:" ? "wss:" : "ws:";
+          const wsUrl = `${protocol}//${
+            window.location.host
+          }/join-room?key=${encodeURIComponent(
+            roomKey
+          )}&username=${encodeURIComponent(username)}`;
+
+          ws = new WebSocket(wsUrl);
+
+          ws.onopen = function () {
+            console.log("WebSocket connected");
+            updateConnectionStatus(true);
+            reconnectAttempts = 0;
+          };
+
+          ws.onmessage = function (event) {
+            try {
+              const data = JSON.parse(event.data);
+              handleWebSocketMessage(data);
+            } catch (error) {
+              console.error("Error parsing WebSocket message:", error);
+            }
+          };
+
+          ws.onclose = function () {
+            console.log("WebSocket disconnected");
+            updateConnectionStatus(false);
+
+            // Thử kết nối lại
+            if (reconnectAttempts < maxReconnectAttempts) {
+              reconnectAttempts++;
+              setTimeout(() => {
+                console.log(
+                  `Attempting to reconnect... (${reconnectAttempts}/${maxReconnectAttempts})`
+                );
+                connectWebSocket();
+              }, 2000 * reconnectAttempts);
+            }
+          };
+
+          ws.onerror = function (error) {
+            console.error("WebSocket error:", error);
+            updateConnectionStatus(false);
+          };
+        } catch (error) {
+          console.error("Error creating WebSocket:", error);
+          showError("Không thể kết nối đến phòng. Vui lòng thử lại!");
+        }
+      }
+
+      function handleWebSocketMessage(data) {
+        // Xử lý các tin nhắn từ WebSocket
+        console.log("Received WebSocket message:", data);
+
+        // Có thể mở rộng để xử lý các loại tin nhắn khác nhau
+        if (data.type === "room_update") {
+          updateRoomStatus();
+        }
+      }
+
+      function startStatusCheck() {
+        // Kiểm tra trạng thái phòng ngay lập tức
+        updateRoomStatus();
+
+        // Sau đó kiểm tra mỗi 3 giây
+        statusCheckInterval = setInterval(updateRoomStatus, 3000);
+      }
+
+      async function updateRoomStatus() {
+        try {
+          const response = await fetch(
+            `/room-status?key=${encodeURIComponent(roomKey)}`
+          );
+
+          if (!response.ok) {
+            if (response.status === 404) {
+              showError("Phòng không tồn tại hoặc đã bị đóng.");
+              return;
+            }
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+
+          const data = await response.json();
+          updateRoomDisplay(data);
+          hideError();
+        } catch (error) {
+          console.error("Error fetching room status:", error);
+          showError("Không thể cập nhật trạng thái phòng.");
+        }
+      }
+
+      function updateRoomDisplay(roomData) {
+        // Cập nhật thông tin phòng
+        document.getElementById("playerCount").textContent =
+          roomData.players.length;
+        document.getElementById("hostName").textContent = roomData.hostname;
+
+        // Cập nhật danh sách người chơi
+        const playersGrid = document.getElementById("playersGrid");
+
+        if (roomData.players.length === 0) {
+          playersGrid.innerHTML =
+            '<div class="loading-message">Không có người chơi nào trong phòng</div>';
+          return;
+        }
+
+        playersGrid.innerHTML = roomData.players
+          .map((player) => {
+            const isPlayerHost = player.username === roomData.hostname;
+            const isDrawer = player.role === "drawer";
+
+            let cardClass = "player-card";
+            let roleText = "Người đoán";
+            let avatar = player.username.charAt(0).toUpperCase();
+
+            if (isPlayerHost) {
+              cardClass += " host";
+              roleText = "Chủ phòng";
+            }
+
+            if (isDrawer && !isPlayerHost) {
+              cardClass += " drawer";
+              roleText = "Người vẽ";
+            }
+
+            return `
+                    <div class="${cardClass}">
+                        <div class="player-avatar">${avatar}</div>
+                        <div class="player-name">${player.username}</div>
+                        <div class="player-role">
+                            ${roleText}
+                            ${
+                              isPlayerHost
+                                ? '<span class="host-badge">HOST</span>'
+                                : ""
+                            }
+                        </div>
+                    </div>
+                `;
+          })
+          .join("");
+
+        // Cập nhật nút bắt đầu game (chỉ host mới thấy)
+        const startGameBtn = document.getElementById("startGameBtn");
+        if (isHost) {
+          startGameBtn.style.display = "inline-block";
+          startGameBtn.disabled = roomData.players.length < 2;
+        } else {
+          startGameBtn.style.display = "none";
+        }
+      }
+
+      function updateConnectionStatus(connected) {
+        const statusDot = document.getElementById("statusDot");
+        const connectionStatus = document.getElementById("connectionStatus");
+
+        if (connected) {
+          statusDot.classList.remove("disconnected");
+          connectionStatus.textContent = "Đã kết nối";
+        } else {
+          statusDot.classList.add("disconnected");
+          connectionStatus.textContent = "Mất kết nối";
+        }
+      }
+
+      function copyRoomKey() {
+        navigator.clipboard
+          .writeText(roomKey)
+          .then(() => {
+            // Hiệu ứng đã copy
+            const copyBtn = event.target;
+            const originalText = copyBtn.textContent;
+            copyBtn.textContent = "✓";
+            setTimeout(() => {
+              copyBtn.textContent = originalText;
+            }, 1000);
+          })
+          .catch((err) => {
+            console.error("Failed to copy room key:", err);
+            // Fallback cho các trình duyệt cũ
+            const textArea = document.createElement("textarea");
+            textArea.value = roomKey;
+            document.body.appendChild(textArea);
+            textArea.select();
+            document.execCommand("copy");
+            document.body.removeChild(textArea);
+          });
+      }
+
+      function leaveRoom() {
+        if (confirm("Bạn có chắc muốn rời khỏi phòng?")) {
+          // Đóng WebSocket
+          if (ws) {
+            ws.close();
+          }
+
+          // Xóa thông tin session
+          sessionStorage.removeItem("roomKey");
+          sessionStorage.removeItem("username");
+          sessionStorage.removeItem("isHost");
+
+          // Dừng interval
+          if (statusCheckInterval) {
+            clearInterval(statusCheckInterval);
+          }
+
+          // Chuyển về trang chủ
+          window.location.href = "index.html";
+        }
+      }
+
+      function startGame() {
+        if (!isHost) {
+          showError("Chỉ chủ phòng mới có thể bắt đầu game!");
+          return;
+        }
+
+        // Gửi lệnh bắt đầu game (có thể cần implement API riêng)
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(
+            JSON.stringify({
+              type: "start_game",
+            })
+          );
+        }
+
+        // Hoặc chuyển hướng đến trang game
+        window.location.href = `drawer.html?key=${encodeURIComponent(roomKey)}`;
+      }
+
+      function showError(message) {
+        const errorContainer = document.getElementById("errorContainer");
+        const errorMessage = document.getElementById("errorMessage");
+
+        errorMessage.textContent = message;
+        errorContainer.style.display = "block";
+      }
+
+      function hideError() {
+        const errorContainer = document.getElementById("errorContainer");
+        errorContainer.style.display = "none";
+      }
+
+      // Cleanup khi rời khỏi trang
+      window.addEventListener("beforeunload", function () {
+        if (ws) {
+          ws.close();
+        }
+        if (statusCheckInterval) {
+          clearInterval(statusCheckInterval);
+        }
+      });
+    </script>
+  </body>
+</html>

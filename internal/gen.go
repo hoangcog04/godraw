@@ -7,8 +7,8 @@ const (
 	MaxLength = 6
 )
 
-func genKey(length int) string {
-	b := make([]byte, length)
+func genKey() string {
+	b := make([]byte, MaxLength)
 	for i := range b {
 		b[i] = CharSet[rand.Intn(len(CharSet))]
 	}

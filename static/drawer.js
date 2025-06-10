@@ -15,21 +15,13 @@ if (!roomKey) {
   window.location.href = "index.html";
 }
 
-const ws = new WebSocket(
-  `ws://localhost:8080/ws?key=${encodeURIComponent(roomKey)}`
-);
-
-ws.onopen = function () {
-  console.log("WebSocket connection established");
-};
-ws.onclose = function () {
-  console.log("WebSocket connection closed");
-};
-ws.onerror = function (error) {
-  console.error("WebSocket error:", error);
-  alert("Không thể kết nối đến phòng. Phòng có thể không tồn tại.");
+let ws = null;
+if (window.ws) {
+  ws = window.ws;
+} else {
+  alert("Không tìm thấy kết nối phòng. Vui lòng vào lại từ phòng chờ!");
   window.location.href = "index.html";
-};
+}
 
 const canvas = document.getElementById("drawingCanvas");
 const rect = canvas.getBoundingClientRect();
